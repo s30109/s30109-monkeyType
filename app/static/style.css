@@ -1,0 +1,117 @@
+body {
+    background: #18181a;
+    color: #e2e2e2;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+h1 {
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    text-align: center;
+    color: #ffbe76;
+}
+
+#container {
+    max-width: 650px;
+    margin: 40px auto;
+    background: #23232b;
+    padding: 36px 32px 26px 32px;
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(20,20,35,0.15);
+}
+
+#setup, #game, #result {
+    margin: 16px 0;
+}
+
+input[type="text"], #inputArea {
+    background: #1a1a22;
+    color: #e2e2e2;
+    border: 2px solid #444;
+    border-radius: 7px;
+    padding: 12px 16px;
+    font-size: 1.13em;
+    margin: 0 0 12px 0;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus, #inputArea:focus {
+    border-color: #ffbe76;
+    outline: none;
+}
+
+button {
+    background: #ffbe76;
+    color: #23232b;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 7px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    transition: background 0.18s;
+}
+
+button:hover {
+    background: #ffac44;
+}
+
+#words {
+    font-size: 1.28em;
+    background: #22222a;
+    color: #f0f0f2;
+    padding: 18px 16px;
+    border-radius: 7px;
+    margin-bottom: 18px;
+    min-height: 48px;
+    word-break: break-word;
+    letter-spacing: 1.2px;
+}
+
+#timer {
+    color: #e17055;
+    font-size: 1.32em;
+    margin-bottom: 18px;
+    text-align: right;
+    font-weight: bold;
+}
+
+#result h2 {
+    color: #ffeaa7;
+    margin-bottom: 6px;
+}
+
+#result p {
+    margin: 9px 0;
+    font-size: 1.11em;
+}
+.word {
+    transition: color 0.2s, opacity 0.2s;
+    padding-right: 2px;
+}
+
+.used {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+.correct {
+    color: #27ae60 !important;    /* zielony */
+}
+
+.incorrect {
+    color: #e74c3c !important;    /* czerwony */
+}
+.current {
+    background: #ffeaa780; /* delikatny żółty, półprzezroczysty */
+    border-radius: 5px;
+    transition: background 0.15s;
+}

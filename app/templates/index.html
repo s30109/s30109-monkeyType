@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MonkeyType – Mini Klon</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .word { transition: color 0.2s, opacity 0.2s; padding-right: 2px;}
+        .used { color: #666; opacity: 0.42; text-decoration: line-through; }
+        #usernameSummary { color: #ffbe76; font-weight: bold; letter-spacing: 0.5px;}
+        .modal {
+            display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100vw; height: 100vh;
+            background: rgba(15,15,20,0.83); align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: #23232b; color: #e2e2e2; padding: 34px 24px; border-radius: 13px; max-width: 400px; margin: auto;
+            box-shadow: 0 8px 32px rgba(20,20,35,0.15); min-width: 320px; text-align: left;
+        }
+        .modal h3 { color: #ffeaa7; margin-top: 0; }
+        .modal table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .modal th, .modal td { padding: 5px 7px; }
+        .modal th { color: #ffbe76; }
+        .modal tr:nth-child(even) { background: #202024; }
+        .close { float: right; cursor: pointer; color: #e17055; font-size: 1.5em; }
+        .btn-group { margin-bottom: 12px; text-align: center; }
+        .btn-group button { margin: 0 8px; }
+    </style>
+</head>
+<body>
+<div id="container">
+    <h1>MonkeyType – Mini Klon</h1>
+    <div id="setup">
+        <label for="username" style="display:none;">Nazwa użytkownika:</label>
+        <input type="text" id="username" placeholder="Wpisz username">
+        <div class="btn-group">
+            <button id="startBtn">Start</button>
+            <button id="showHighscoresBtn" type="button">Highscores</button>
+            <button id="showMyHighscoresBtn" type="button">My Highscores</button>
+        </div>
+    </div>
+
+    <div id="game" style="display:none;">
+        <div id="timer">30</div>
+        <div id="liveStats" style="margin-bottom: 12px;">
+            <span>WPM: <b id="liveWPM">0</b></span> |
+            <span>Accuracy: <b id="liveAcc">0</b>%</span>
+        </div>
+        <div id="words"></div>
+        <input id="inputArea" autocomplete="off" disabled placeholder="Wpisuj słowa, zatwierdzaj spacją...">
+    </div>
+
+    <div id="result" style="display:none;"></div>
+</div>
+
+<!-- Modal Highscores -->
+<div id="modal" class="modal" onclick="closeModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <span class="close" onclick="closeModal(event)">&times;</span>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+let typedWords = [];
+let expectedWords = [];
+let timer = null;
+let timeLeft = 30;
+let username = "";
+
+document.getElementById("startBtn").onclick = async function() {
+    username = document.getElementById("username").value.trim();
+    if (!username) { alert("Podaj username!"); return; }
+    const res = await fetch('/game');
+    const data = await res.json();
+    expectedWords = data.words;
+    let html = "";
+    for(let i=0; i<expectedWords.length; ++i) {
+        html += `<span class="word" id="word${i}">${expectedWords[i]}</span> `;
+    }
+    document.getElementById("words").innerHTML = html;
+    document.querySelectorAll('.current').forEach(el => el.classList.remove('current'));
+    let firstSpan = document.getElementById("word0");
+    if (firstSpan) firstSpan.classList.add("current");
+    typedWords = [];
+    timeLeft = 30;
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("game").style.display = "block";
+    document.getElementById("result").style.display = "none";
+    document.getElementById("timer").innerText = timeLeft;
+    document.getElementById("inputArea").value = "";
+    document.getElementById("inputArea").disabled = false;
+    document.getElementById("inputArea").focus();
+    document.getElementById("liveWPM").innerText = "0";
+    document.getElementById("liveAcc").innerText = "0";
+    document.getElementById("liveStats").style.display = "block";
+
+    timer = setInterval(() => {
+        timeLeft -= 1;
+        document.getElementById("timer").innerText = timeLeft;
+        updateLiveStats();
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            endGame();
+        }
+    }, 1000);
+};
+
+document.getElementById("inputArea").addEventListener("keydown", function(e) {
+    if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+
+        if (typedWords.length >= expectedWords.length) {
+            this.value = "";
+            return;
+        }
+
+        let word = this.value.trim();
+        if (word) {
+            let idx = typedWords.length;
+            typedWords.push(word);
+            updateLiveStats();
+            if (idx < expectedWords.length) {
+                let wspan = document.getElementById("word"+idx);
+                if (wspan) {
+                    wspan.classList.add("used");
+                    if (word === expectedWords[idx]) {
+                        wspan.classList.add("correct");
+                    } else {
+                        wspan.classList.add("incorrect");
+                    }
+                    wspan.classList.remove("current");
+                }
+                let nextSpan = document.getElementById("word"+(idx+1));
+                if (nextSpan) {
+                    nextSpan.classList.add("current");
+                }
+            }
+            if (typedWords.length >= expectedWords.length) {
+                document.getElementById("inputArea").disabled = true;
+                clearInterval(timer);
+                endGame();
+                return;
+            }
+        }
+        this.value = "";
+    }
+});
+
+function updateLiveStats() {
+    let correct = 0;
+    let totalChars = 0;
+    let now = 30 - timeLeft;
+    if (now === 0) now = 1;
+
+    for (let i = 0; i < typedWords.length; ++i) {
+        if (i < expectedWords.length && typedWords[i] === expectedWords[i]) correct++;
+        totalChars += typedWords[i].length;
+    }
+    let wpm = Math.round((totalChars / 5) / (now / 60));
+    let accuracy = typedWords.length ? Math.round((correct / typedWords.length) * 100) : 0;
+    document.getElementById("liveWPM").innerText = wpm;
+    document.getElementById("liveAcc").innerText = accuracy;
+}
+
+
+async function endGame() {
+    if (window.ended) return;
+    window.ended = true;
+    console.log("END GAME start");
+    document.getElementById("inputArea").disabled = true;
+    document.getElementById("liveStats").style.display = "none";
+    let word = document.getElementById("inputArea").value.trim();
+    if (word) {
+        typedWords.push(word);
+        let idx = typedWords.length-1;
+        if (idx < expectedWords.length) {
+            let wspan = document.getElementById("word"+idx);
+            if (wspan) {
+                wspan.classList.add("used");
+                let current = document.querySelector(".current");
+                if (current) current.classList.remove("current");
+                if (word === expectedWords[idx]) {
+                    wspan.classList.add("correct");
+                }
+                } else {
+                wspan.classList.add("incorrect");
+                }
+            }
+        }
+    const res = await fetch('/submit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            username: username,
+            typed_words: typedWords,
+            expected_words: expectedWords,
+            time: 30
+        })
+    });
+    console.log("Po fetchu, status:", res.status);
+    const result = await res.json();
+    console.log("Result z backendu:", result);
+    document.getElementById("game").style.display = "none";
+    document.getElementById("result").innerHTML =
+        `<h2>Koniec gry!</h2>
+        <p>Użytkownik: <span id="usernameSummary">${username}</span></p>
+        <p>WPM: <b id="finalWPM">0</b></p>
+        <p>Accuracy: <b id="finalAcc">0</b>%</p>
+        <button onclick="location.reload()">Zagraj jeszcze raz</button>
+        <button onclick="goHome()">Home</button>`;
+    document.getElementById("result").style.display = "block";
+
+    animateNumber("finalWPM", result.wpm, 2000, 2);
+animateNumber("finalAcc", result.accuracy, 2000, 2);
+
+}
+
+function animateNumber(id, target, duration = 1000, decimals = 0) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let start = 0;
+    let startTime = null;
+    function animate(currentTime) {
+        if (!startTime) startTime = currentTime;
+        let progress = (currentTime - startTime) / duration;
+        if (progress > 1) progress = 1;
+        let ease = 1 - Math.pow(1 - progress, 5);
+        let value = start + (target - start) * ease;
+        el.innerText = decimals ? value.toFixed(decimals) : Math.round(value);
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            el.innerText = decimals ? target.toFixed(decimals) : target;
+        }
+    }
+    requestAnimationFrame(animate);
+}
+
+
+function goHome() {
+    document.getElementById("setup").style.display = "block";
+    document.getElementById("game").style.display = "none";
+    document.getElementById("result").style.display = "none";
+    document.getElementById("inputArea").value = "";
+    document.getElementById("username").focus();
+}
+
+function closeModal(event) {
+    document.getElementById("modal").style.display = "none";
+}
+
+document.getElementById("showHighscoresBtn").onclick = async function() {
+    const res = await fetch('/highscores');
+    const data = await res.json();
+    let html = `<h3>Top 10 – Global</h3>`;
+    if (data.length === 0) html += `<p>Brak wyników.</p>`;
+    else {
+        html += `<table>
+        <tr><th>#</th><th>User</th><th>WPM</th><th>Acc (%)</th></tr>`;
+        data.forEach((s,i) => {
+            html += `<tr>
+            <td>${i+1}</td>
+            <td>${s.username}</td>
+            <td>${s.wpm}</td>
+            <td>${s.accuracy}</td>
+            </tr>`;
+        });
+        html += `</table>`;
+    }
+    document.getElementById("modalBody").innerHTML = html;
+    document.getElementById("modal").style.display = "flex";
+};
+
+document.getElementById("showMyHighscoresBtn").onclick = async function() {
+    let uname = document.getElementById("username").value.trim();
+    if (!uname) { alert("Najpierw wpisz swój username!"); return; }
+    const res = await fetch(`/my_highscores?username=${encodeURIComponent(uname)}`);
+    const data = await res.json();
+    let html = `<h3>Twoje TOP 10</h3>`;
+    if (data.length === 0) html += `<p>Brak wyników.</p>`;
+    else {
+        html += `<table>
+        <tr><th>#</th><th>User</th><th>WPM</th><th>Acc (%)</th></tr>`;
+        data.forEach((s,i) => {
+            html += `<tr>
+            <td>${i+1}</td>
+            <td>${s.username}</td>
+            <td>${s.wpm}</td>
+            <td>${s.accuracy}</td>
+            </tr>`;
+        });
+        html += `</table>`;
+    }
+    document.getElementById("modalBody").innerHTML = html;
+    document.getElementById("modal").style.display = "flex";
+};
+</script>
+</body>
+</html>
